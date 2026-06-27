@@ -1,0 +1,387 @@
+trigger:
+  branches:
+    include:
+      - main
+
+# Activamos la creación de entornos efímeros para validar PRs antes de mezclar a main
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  dotnetVersion: '8.x'
+  nodeVersion: '20.x'
+  backendProject: 'backend/RequestPlatform.sln'
+  frontendPath: 'frontend/request-platform'
+  testProject: 'backend/tests/RequestPlatform.Tests/RequestPlatform.Tests.csproj'
+  azureSubscription: 'WTW-Azure-ServiceConnection'
+  backendAppName: 'wtw-request-platform-api'
+  frontendAppName: 'wtw-request-platform-web'
+  nugetCachePath: '$(Pipeline.Workspace)/.nuget/packages'
+  npmCachePath: '$(Pipeline.Workspace)/.npm'
+
+stages:
+  - stage: Build_Backend
+    displayName: 'Build Backend'
+    jobs:
+      - job: BuildDotNet
+        displayName: 'Restore & Build .NET Solution'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET SDK $(dotnetVersion)'
+            inputs:
+              packageType: 'sdk'
+              version: '$(dotnetVersion)'
+
+          - task: Cache@2
+            displayName: 'Cache NuGet packages'
+            inputs:
+              key: 'nuget | "$(Agent.OS)" | backend/**/packages.lock.json'
+              restoreKeys: |
+                nuget | "$(Agent.OS)"
+              path: '$(nugetCachePath)'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet restore'
+            inputs:
+              command: 'restore'
+              projects: '$(backendProject)'
+              feedsToUse: 'select'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet build ($(buildConfiguration))'
+            inputs:
+              command: 'build'
+              projects: '$(backendProject)'
+              arguments: '--configuration $(buildConfiguration) --no-restore'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet publish'
+            inputs:
+              command: 'publish'
+              projects: '$(backendProject)'
+              arguments: '--configuration $(buildConfiguration) --no-build --output $(Build.ArtifactStagingDirectory)/backend'
+              zipAfterPublish: true
+
+          - publish: '$(Build.ArtifactStagingDirectory)/backend'
+            displayName: 'Publish Backend Artifact'
+            artifact: 'backend-drop'
+
+  - stage: Test_Backend
+    displayName: 'Test Backend'
+    dependsOn: Build_Backend
+    jobs:
+      - job: RunTests
+        displayName: 'Run Unit Tests with Coverage'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET SDK $(dotnetVersion)'
+            inputs:
+              packageType: 'sdk'
+              version: '$(dotnetVersion)'
+
+          - task: Cache@2
+            displayName: 'Cache NuGet packages'
+            inputs:
+              key: 'nuget | "$(Agent.OS)" | backend/**/packages.lock.json'
+              restoreKeys: |
+                nuget | "$(Agent.OS)"
+              path: '$(nugetCachePath)'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet restore'
+            inputs:
+              command: 'restore'
+              projects: '$(backendProject)'
+
+          - task: DotNetCoreCLI@2
+            displayName: 'dotnet test with coverage'
+            inputs:
+              command: 'test'
+              projects: '$(testProject)'
+              arguments: >-
+                --configuration $(buildConfiguration)
+                --logger trx;LogFileName=test-results.trx
+                --collect:"XPlat Code Coverage"
+                -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
+
+          - task: PublishTestResults@2
+            displayName: 'Publish Test Results'
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '**/*.trx'
+              searchFolder: '$(Agent.TempDirectory)'
+              mergeTestResults: true
+              testRunTitle: 'Backend Unit Tests'
+
+          - task: PublishCodeCoverageResults@2
+            displayName: 'Publish Code Coverage'
+            inputs:
+              summaryFileLocation: '$(Agent.TempDirectory)/**/coverage.cobertura.xml'
+
+  # Compilamos el frontend en paralelo con el backend para no hacer esperar al equipo
+  - stage: Build_Frontend
+    displayName: 'Build Frontend'
+    dependsOn: []
+    jobs:
+      - job: BuildAngular
+        displayName: 'Install & Build Angular App'
+        steps:
+          - task: NodeTool@0
+            displayName: 'Install Node.js $(nodeVersion)'
+            inputs:
+              versionSpec: '$(nodeVersion)'
+
+          - task: Cache@2
+            displayName: 'Cache npm packages'
+            inputs:
+              key: 'npm | "$(Agent.OS)" | $(frontendPath)/package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: '$(npmCachePath)'
+
+          - script: npm ci --cache $(npmCachePath)
+            displayName: 'npm ci'
+            workingDirectory: '$(frontendPath)'
+
+          - script: npx ng build --configuration production
+            displayName: 'ng build --configuration production'
+            workingDirectory: '$(frontendPath)'
+
+          - publish: '$(frontendPath)/dist/request-platform/browser'
+            displayName: 'Publish Frontend Artifact'
+            artifact: 'frontend-drop'
+
+  # Ambiente Efímero de PR (Preview):
+  # Levanta un slot temporal (ej. pr-14)
+  - stage: Deploy_PR_Preview
+    displayName: 'Deploy PR Preview Slot'
+    dependsOn:
+      - Build_Backend
+      - Test_Backend
+      - Build_Frontend
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+    variables:
+      prSlotName: 'pr-$(System.PullRequest.PullRequestNumber)'
+    jobs:
+      - deployment: DeployBackendPR
+        displayName: 'Deploy API to PR Preview Slot'
+        environment: 'PR-Preview'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'backend-drop'
+                  displayName: 'Download Backend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy API to ephemeral PR slot'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(backendAppName)-dev'
+                    deployToSlotOrASE: true
+                    resourceGroupName: 'rg-wtw-request-platform-dev'
+                    slotName: '$(prSlotName)'
+                    package: '$(Pipeline.Workspace)/backend-drop/**/*.zip'
+                    runtimeStack: 'DOTNETCORE|8.0'
+
+      - deployment: DeployFrontendPR
+        displayName: 'Deploy Web to PR Preview Slot'
+        environment: 'PR-Preview'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'frontend-drop'
+                  displayName: 'Download Frontend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Web to ephemeral PR slot'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(frontendAppName)-dev'
+                    deployToSlotOrASE: true
+                    resourceGroupName: 'rg-wtw-request-platform-dev'
+                    slotName: '$(prSlotName)'
+                    package: '$(Pipeline.Workspace)/frontend-drop'
+
+  # Flujo principal: cada merge a main despliega en automático al ambiente de DEV
+  - stage: Deploy_DEV
+    displayName: 'Deploy to DEV Environment'
+    dependsOn:
+      - Build_Backend
+      - Test_Backend
+      - Build_Frontend
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: DeployBackendDev
+        displayName: 'Deploy Backend to DEV'
+        environment: 'DEV'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'backend-drop'
+                  displayName: 'Download Backend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Backend API to DEV App Service'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(backendAppName)-dev'
+                    package: '$(Pipeline.Workspace)/backend-drop/**/*.zip'
+                    runtimeStack: 'DOTNETCORE|8.0'
+
+      - deployment: DeployFrontendDev
+        displayName: 'Deploy Frontend to DEV'
+        environment: 'DEV'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'frontend-drop'
+                  displayName: 'Download Frontend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Frontend Web to DEV App Service'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(frontendAppName)-dev'
+                    package: '$(Pipeline.Workspace)/frontend-drop'
+
+  # Certificación en QA: aquí corren las pruebas de usuario (UAT)
+  - stage: Deploy_QA
+    displayName: 'Deploy to QA Environment'
+    dependsOn: Deploy_DEV
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: DeployBackendQA
+        displayName: 'Deploy Backend to QA'
+        environment: 'QA'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'backend-drop'
+                  displayName: 'Download Backend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Backend API to QA App Service'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(backendAppName)-qa'
+                    package: '$(Pipeline.Workspace)/backend-drop/**/*.zip'
+                    runtimeStack: 'DOTNETCORE|8.0'
+
+      - deployment: DeployFrontendQA
+        displayName: 'Deploy Frontend to QA'
+        environment: 'QA'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'frontend-drop'
+                  displayName: 'Download Frontend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Frontend Web to QA App Service'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(frontendAppName)-qa'
+                    package: '$(Pipeline.Workspace)/frontend-drop'
+
+  # Despliegue a Producción con Zero-Downtime (Blue-Green Swap):
+  # Nota: AzureDevops tiene configurado un gate de aprobación manual antes de correr este stage.
+  - stage: Deploy_PROD
+    displayName: 'Deploy to PROD Environment'
+    dependsOn: Deploy_QA
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    variables:
+      deploymentSlot: 'staging'
+    jobs:
+      - deployment: DeployBackendProd
+        displayName: 'Deploy Backend to PROD (Staging Slot)'
+        environment: 'PROD'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'backend-drop'
+                  displayName: 'Download Backend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy to App Service Staging Slot'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(backendAppName)'
+                    deployToSlotOrASE: true
+                    resourceGroupName: 'rg-wtw-request-platform-prod'
+                    slotName: '$(deploymentSlot)'
+                    package: '$(Pipeline.Workspace)/backend-drop/**/*.zip'
+                    runtimeStack: 'DOTNETCORE|8.0'
+
+                - task: AzureAppServiceManage@0
+                  displayName: 'Swap Staging -> Production Slot (Zero-Downtime)'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    action: 'Swap Slots'
+                    webAppName: '$(backendAppName)'
+                    resourceGroupName: 'rg-wtw-request-platform-prod'
+                    sourceSlot: '$(deploymentSlot)'
+                    targetSlot: 'production'
+
+      - deployment: DeployFrontendProd
+        displayName: 'Deploy Frontend to PROD (Staging Slot)'
+        environment: 'PROD'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - download: current
+                  artifact: 'frontend-drop'
+                  displayName: 'Download Frontend Artifact'
+
+                - task: AzureWebApp@1
+                  displayName: 'Deploy Frontend to Staging Slot'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(frontendAppName)'
+                    deployToSlotOrASE: true
+                    resourceGroupName: 'rg-wtw-request-platform-prod'
+                    slotName: '$(deploymentSlot)'
+                    package: '$(Pipeline.Workspace)/frontend-drop'
+
+                - task: AzureAppServiceManage@0
+                  displayName: 'Swap Staging -> Production Slot (Zero-Downtime)'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    action: 'Swap Slots'
+                    webAppName: '$(frontendAppName)'
+                    resourceGroupName: 'rg-wtw-request-platform-prod'
+                    sourceSlot: '$(deploymentSlot)'
+                    targetSlot: 'production'
+
+# Nota sobre limpieza de entornos efímeros:
+# Al cerrarse o completarse el Pull Request, corre un pipeline auxiliar de limpieza en AzureDevops con:
+# az webapp deployment slot delete --name $(backendAppName)-dev --resource-group rg-wtw-request-platform-dev --slot pr-<PR_NUM>

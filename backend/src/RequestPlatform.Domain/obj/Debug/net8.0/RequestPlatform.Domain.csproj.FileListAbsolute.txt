@@ -1,0 +1,11 @@
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/bin/Debug/net8.0/RequestPlatform.Domain.deps.json
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/bin/Debug/net8.0/RequestPlatform.Domain.dll
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/bin/Debug/net8.0/RequestPlatform.Domain.pdb
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/RequestPlatform.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/RequestPlatform.Domain.AssemblyInfoInputs.cache
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/RequestPlatform.Domain.AssemblyInfo.cs
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/RequestPlatform.Domain.csproj.CoreCompileInputs.cache
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/RequestPlatform.Domain.dll
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/refint/RequestPlatform.Domain.dll
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/RequestPlatform.Domain.pdb
+/Users/juanballesteros/Documents/wtw-tl-test/backend/src/RequestPlatform.Domain/obj/Debug/net8.0/ref/RequestPlatform.Domain.dll

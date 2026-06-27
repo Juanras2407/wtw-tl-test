@@ -1,0 +1,56 @@
+<div class="page-enter request-create">
+  <div class="page-header">
+    <button mat-icon-button (click)="onCancel()" class="back-btn">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <div>
+      <h1>New Request</h1>
+      <p class="subtitle">Create a new vacation, loan, or permission request</p>
+    </div>
+  </div>
+
+  <!-- Step 1: Select Type -->
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">1</span>
+      <h2>Select Request Type</h2>
+    </div>
+    <div class="type-selector">
+      @for (type of requestTypes; track type.value) {
+        <button
+          class="type-card"
+          [class.selected]="selectedType() === type.value"
+          (click)="onTypeSelected(type.value)">
+          <mat-icon class="type-icon">{{ type.icon }}</mat-icon>
+          <span class="type-label">{{ type.label }}</span>
+          @if (selectedType() === type.value) {
+            <mat-icon class="check-icon">check_circle</mat-icon>
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Step 2: Fill Form -->
+  @if (selectedType()) {
+    <div class="step-card form-step">
+      <div class="step-header">
+        <span class="step-number">2</span>
+        <h2>Fill in Details</h2>
+      </div>
+
+      @if (submitting()) {
+        <div class="submitting-overlay">
+          <mat-spinner diameter="40"></mat-spinner>
+          <p>Submitting request...</p>
+        </div>
+      } @else {
+        <app-dynamic-form
+          [schema]="currentSchema()"
+          (formSubmit)="onFormSubmit($event)"
+          (formCancel)="onCancel()">
+        </app-dynamic-form>
+      }
+    </div>
+  }
+</div>

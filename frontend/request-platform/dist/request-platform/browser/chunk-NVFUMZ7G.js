@@ -1,0 +1,1 @@
+import"./chunk-4CLCTAJ7.js";var e=[{path:"",loadComponent:()=>import("./chunk-QLFNFOWN.js").then(t=>t.RequestListComponent)},{path:"new",loadComponent:()=>import("./chunk-NU4QLZMH.js").then(t=>t.RequestCreateComponent)}];export{e as REQUEST_ROUTES};

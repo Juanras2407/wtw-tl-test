@@ -1,0 +1,53 @@
+.dynamic-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-field-wrapper {
+  animation: fieldSlideIn .3s ease-out;
+  animation-fill-mode: backwards;
+
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.05}s;
+    }
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+
+  .cancel-btn {
+    color: var(--text-secondary);
+  }
+
+  .submit-btn {
+    mat-icon {
+      font-size: 18px;
+      height: 18px;
+      width: 18px;
+      margin-right: 4px;
+    }
+  }
+}
+
+@keyframes fieldSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "RequestPlatform.API, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "\/Users\/juanballesteros\/Documents\/wtw-tl-test\/backend\/src\/RequestPlatform.API",
+  "RequestPlatform.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "\/Users\/juanballesteros\/Documents\/wtw-tl-test\/backend\/src\/RequestPlatform.Application",
+  "RequestPlatform.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "\/Users\/juanballesteros\/Documents\/wtw-tl-test\/backend\/src\/RequestPlatform.Domain",
+  "RequestPlatform.Infrastructure, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null": "\/Users\/juanballesteros\/Documents\/wtw-tl-test\/backend\/src\/RequestPlatform.Infrastructure"
+}

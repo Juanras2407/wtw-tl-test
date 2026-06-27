@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "bDZA+D5nUVccwjTdj4QsIeajdyrmCKtBI0+Xbj/FB00=",
+  "Source": "RequestPlatform.API",
+  "BasePath": "_content/RequestPlatform.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

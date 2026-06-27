@@ -266,7 +266,11 @@ stages:
   # Certificación en QA: aquí corren las pruebas de usuario (UAT)
   - stage: Deploy_QA
     displayName: 'Deploy to QA Environment'
-    dependsOn: Deploy_DEV
+    dependsOn:
+      - Build_Backend
+      - Test_Backend
+      - Build_Frontend
+      - Deploy_DEV
     condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
       - deployment: DeployBackendQA

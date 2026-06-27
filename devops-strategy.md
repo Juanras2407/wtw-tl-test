@@ -37,7 +37,7 @@ Para evitar que ramas incompletas rompan el entorno de desarrollo compartido (**
 
 ## 2. Gestión de Secrets y Configuración
 
-La regla de oro del equipo es absoluta: **cero credenciales en el repositorio de código fuente**. Ningún *connection string*, API key o certificado vive en el código ni en archivos `appsettings.json`.
+La regla del equipo es absoluta: **cero credenciales en el repositorio de código fuente**. Ningún *connection string*, API key o certificado vive en el código ni en archivos `appsettings.json`.
 
 ### 2.1 Arquitectura de Configuración (Azure Key Vault + Managed Identity)
 1. **Azure Key Vault:** Única fuente de verdad para secretos (contraseñas de SQL Server, claves JWT).
@@ -57,7 +57,7 @@ La regla de oro del equipo es absoluta: **cero credenciales en el repositorio de
 
 ## 3. Rollback Automático y Resiliencia
 
-Un despliegue fallido no debe requerir una intervención manual de emergencia a medianoche. El sistema está diseñado para autoguarecerse o revertirse de inmediato.
+Un despliegue fallido no debe requerir una intervención manual de emergencia a medianoche. El sistema está diseñado para revertirse de inmediato.
 
 ### 3.1 Health Checks y Compuerta Pre-Swap
 Antes de ejecutar un intercambio hacia producción, el pipeline golpea el endpoint de salud (`/api/health`) en la ranura de `staging`.

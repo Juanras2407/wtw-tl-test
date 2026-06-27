@@ -1,0 +1,32 @@
+## Build results
+[Bb]in/
+[Oo]bj/
+out/
+PublishOutput/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## NuGet & Package caches
+*.nupkg
+*.snupkg
+packages/
+!packages.lock.json
+
+## Visual Studio / Rider / VS Code
+.vs/
+.idea/
+*.sln.iml
+*.csproj.user
+
+## Test results & Coverage
+TestResults/
+*.trx
+*.cobertura.xml
+coverage/
+TestResult.xml
+nunit-*.xml
+
+## OS Files
+.DS_Store

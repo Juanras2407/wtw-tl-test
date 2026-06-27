@@ -1,3 +1,0 @@
-﻿<Project>
-  <Import Project="../buildMultiTargeting/RequestPlatform.API.props" />
-</Project>

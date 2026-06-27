@@ -113,3 +113,83 @@ sequenceDiagram
 ## 4. Documentación Adjunta
 * **`devops-strategy.md`**: Detalla el flujo de promoción lineal (`PR-Preview` → `DEV` → `QA` → `PROD`), gestión de secretos sin código en Azure Key Vault y mecanismos de rollback instantáneo en menos de 5 segundos.
 * **`liderazgo-tecnico.md`**: Presenta mis respuestas detalladas y resolución de conflictos ante los 6 escenarios de gestión del equipo.
+
+## 5. Diagramas de secuencia funcionales
+
+**Flujo de Consulta y Filtrado**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario
+    participant FE as Angular (RequestList)
+    participant API as RequestsController
+    participant SRV as RequestService
+    participant REP as RequestRepository
+    participant SQL as SQL Server (JSON)
+
+    U->>FE: Selecciona filtros y busca
+    FE->>API: GET /api/requests?type=...&status=...
+    API->>SRV: GetAllAsync(filterDto)
+    SRV->>REP: GetAllAsync(domainFilters)
+    REP->>SQL: SELECT * FROM Requests WHERE JSON_VALUE(...)
+    SQL-->>REP: Rows (Id, Type, Status, DynamicData)
+    REP-->>SRV: List<Request> (Entidades)
+    SRV-->>API: List<RequestDto> (Mapeo)
+    API-->>FE: 200 OK [ { ... } ]
+    FE-->>U: Renderiza tabla e extrae resumen
+```
+
+**Flujo de Creación Dinámica**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario
+    participant FE as Angular (DynamicForm)
+    participant VAL as FluentValidation
+    participant API as RequestsController
+    participant SRV as RequestService
+    participant UOW as UnitOfWork / Repo
+    participant SQL as SQL Server
+
+    U->>FE: Selecciona tipo (ej. Loan) y llena formulario
+    FE->>API: POST /api/requests { type, dynamicData }
+    API->>VAL: Validate(CreateRequestDto)
+    VAL-->>API: IsValid = true
+    API->>SRV: CreateAsync(dto)
+    SRV->>SRV: new Request(...) [Validación de Dominio]
+    SRV->>UOW: Repository.AddAsync(request)
+    SRV->>UOW: UnitOfWork.SaveChangesAsync()
+    UOW->>SQL: INSERT INTO Requests (ISJSON constraint check)
+    SQL-->>UOW: 1 row affected
+    SRV-->>API: RequestDto (Creado)
+    API-->>FE: 201 Created (Location Header)
+    FE-->>U: Notificación Snackbar + Redirección a lista
+```
+
+**Flujo de Eliminación**
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Usuario
+    participant FE as Angular (RequestList)
+    participant DLG as MatDialog (Confirm)
+    participant API as RequestsController
+    participant SRV as RequestService
+    participant SQL as SQL Server
+
+    U->>FE: Clic en ícono de eliminar
+    FE->>DLG: Abre ConfirmDialogComponent
+    DLG-->>U: "¿Está seguro de eliminar?"
+    U->>DLG: Confirma (Aceptar)
+    DLG-->>FE: true
+    FE->>API: DELETE /api/requests/{id}
+    API->>SRV: DeleteAsync(id)
+    SRV->>SQL: DELETE FROM Requests WHERE Id = {id}
+    SQL-->>SRV: OK
+    SRV-->>API: true
+    API-->>FE: 204 No Content
+    FE-->>U: Snackbar "Eliminado con éxito" + Recarga tabla
+```
